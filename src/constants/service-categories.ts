@@ -1,38 +1,18 @@
-import { LocationType, ServiceProvider } from "@/types"
-
-type CategoryDefinition = {
+export type CategoryDefinition = {
   key: string
   label: string
-  locationType: LocationType | null
-  serviceProvider: ServiceProvider | null
+  categories: string[]
 }
 
+export const ALL_CATEGORIES_KEY = "all"
+
 export const serviceCategories: CategoryDefinition[] = [
-  { key: "all", label: "All", locationType: null, serviceProvider: null },
-  { key: "banks", label: "Banks", locationType: LocationType.Bank, serviceProvider: null },
-  { key: "atm", label: "ATM", locationType: LocationType.ATM, serviceProvider: null },
-  {
-    key: "fawry",
-    label: "Fawry",
-    locationType: LocationType.FinancialServiceProvider,
-    serviceProvider: ServiceProvider.Fawry,
-  },
-  {
-    key: "bee",
-    label: "Bee",
-    locationType: LocationType.FinancialServiceProvider,
-    serviceProvider: ServiceProvider.Bee,
-  },
-  {
-    key: "aman",
-    label: "Aman",
-    locationType: LocationType.FinancialServiceProvider,
-    serviceProvider: ServiceProvider.Aman,
-  },
-  {
-    key: "dafaa",
-    label: "Dafaa",
-    locationType: LocationType.FinancialServiceProvider,
-    serviceProvider: ServiceProvider.Dafaa,
-  },
+  { key: "atm", label: "ATM", categories: ["700-7010-0108"] },
+  { key: "banks", label: "Banks", categories: ["700-7000-0107"] },
+  { key: "money-transfer", label: "Fintech / Money Transfer", categories: ["700-7050-0109"] },
+  { key: ALL_CATEGORIES_KEY, label: "All", categories: ["700-7010-0108", "700-7000-0107", "700-7050-0109"] },
 ] as const
+
+export function getCategoryDefinition(key: string): CategoryDefinition | undefined {
+  return serviceCategories.find((category) => category.key === key)
+}

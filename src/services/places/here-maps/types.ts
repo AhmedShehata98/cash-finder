@@ -54,9 +54,41 @@ export type HereMapsPlace = {
 
 export type HereMapsBrowseResponse = {
   items: HereMapsPlace[]
+  offset?: number
+  nextOffset?: number
+  count?: number
+  limit?: number
 }
 
-const ATM_CATEGORY = "700-7000-0117"
-const BANK_CATEGORY = "700-7000-0115"
+const ATM_CATEGORY = "700-7010-0108"
+const BANK_CATEGORY = "700-7000-0107"
+const MONEY_TRANSFER_CATEGORY = "700-7050-0109"
 
-export { ATM_CATEGORY, BANK_CATEGORY }
+export type HereMapsRoutingResponse = {
+  routes: {
+    id: string
+    sections: {
+      id: string
+      type: string
+      transportMode: string
+      polyline: string
+      summary: {
+        duration: number
+        length: number
+        baseDuration?: number
+      }
+      departure: {
+        time: string
+        place: { location: { lat: number; lng: number } }
+      }
+      arrival: {
+        time: string
+        place: { location: { lat: number; lng: number } }
+      }
+    }[]
+  }[]
+}
+
+export type HereMapsLookupResponse = HereMapsPlace
+
+export { ATM_CATEGORY, BANK_CATEGORY, MONEY_TRANSFER_CATEGORY }

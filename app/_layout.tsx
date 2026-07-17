@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { QueryProvider } from '@/providers/query-provider';
+import { useLocaleStore } from '@/store/locale-store';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -24,6 +25,7 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+  const hasHydrated = useLocaleStore((state) => state.hasHydrated)
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
@@ -31,12 +33,12 @@ export default function RootLayout() {
   }, [error]);
 
   useEffect(() => {
-    if (loaded) {
+    if (loaded && hasHydrated) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [hasHydrated, loaded]);
 
-  if (!loaded) {
+  if (!loaded || !hasHydrated) {
     return null;
   }
 

@@ -33,6 +33,7 @@ type LocationData = {
 type UseLocationOptions = {
   enableHighAccuracy?: boolean
   interval?: number
+  distanceInterval?: number
   oneTime?: boolean
 }
 
@@ -41,10 +42,11 @@ type UseLocationReturn = {
   loading: boolean
   error: string | null
   stopLocationUpdates: () => void
+  refreshLocation: () => Promise<LocationData | null>
 }
 
 export function useLocation(options: UseLocationOptions = {}): UseLocationReturn {
-  const { enableHighAccuracy = true, interval, oneTime = false } = options
+  const { enableHighAccuracy = true, interval, distanceInterval = 0, oneTime = false } = options
 
   const [location, setLocation] = useState<LocationData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -52,6 +54,67 @@ export function useLocation(options: UseLocationOptions = {}): UseLocationReturn
 
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null)
   const isMountedRef = useRef(true)
+
+  const mapLocationData = useCallback((currentLocation: Location.LocationObject): LocationData => {
+    return {
+      latitude: currentLocation.coords.latitude,
+      longitude: currentLocation.coords.longitude,
+      accuracy: currentLocation.coords.accuracy,
+      altitude: currentLocation.coords.altitude,
+      altitudeAccuracy: currentLocation.coords.altitudeAccuracy,
+      heading: currentLocation.coords.heading,
+      speed: currentLocation.coords.speed,
+      timestamp: currentLocation.timestamp,
+    }
+  }, [])
+
+  const requestPermission = useCallback(async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync()
+
+    if (status !== Location.PermissionStatus.GRANTED) {
+      throw new Error("Location permission denied")
+    }
+  }, [])
+
+  const readCurrentLocation = useCallback(async () => {
+    const currentLocation = await Location.getCurrentPositionAsync({
+      accuracy: enableHighAccuracy
+        ? Location.Accuracy.High
+        : Location.Accuracy.Balanced,
+    })
+
+    return mapLocationData(currentLocation)
+  }, [enableHighAccuracy, mapLocationData])
+
+  const getLocation = useCallback(
+    async ({ showLoader = false }: { showLoader?: boolean } = {}): Promise<LocationData | null> => {
+      try {
+        if (showLoader && isMountedRef.current) {
+          setLoading(true)
+        }
+
+        setError(null)
+        await requestPermission()
+
+        const nextLocation = await readCurrentLocation()
+
+        if (isMountedRef.current) {
+          setLocation(nextLocation)
+          setLoading(false)
+        }
+
+        return nextLocation
+      } catch (err) {
+        if (isMountedRef.current) {
+          setError(err instanceof Error ? err.message : "Failed to get location")
+          setLoading(false)
+        }
+
+        return null
+      }
+    },
+    [readCurrentLocation, requestPermission]
+  )
 
   const stopLocationUpdates = useCallback(() => {
     if (subscriptionRef.current) {
@@ -64,42 +127,9 @@ export function useLocation(options: UseLocationOptions = {}): UseLocationReturn
     }
   }, [])
 
-  const getLocation = useCallback(async () => {
-    try {
-      setError(null)
-
-      const { status } = await Location.requestForegroundPermissionsAsync()
-
-      if (status !== Location.PermissionStatus.GRANTED) {
-        throw new Error("Location permission denied")
-      }
-
-      const currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: enableHighAccuracy
-          ? Location.Accuracy.High
-          : Location.Accuracy.Balanced,
-      })
-
-      if (isMountedRef.current) {
-        setLocation({
-          latitude: currentLocation.coords.latitude,
-          longitude: currentLocation.coords.longitude,
-          accuracy: currentLocation.coords.accuracy,
-          altitude: currentLocation.coords.altitude,
-          altitudeAccuracy: currentLocation.coords.altitudeAccuracy,
-          heading: currentLocation.coords.heading,
-          speed: currentLocation.coords.speed,
-          timestamp: currentLocation.timestamp,
-        })
-        setLoading(false)
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        setError(err instanceof Error ? err.message : "Failed to get location")
-        setLoading(false)
-      }
-    }
-  }, [enableHighAccuracy])
+  const refreshLocation = useCallback(async () => {
+    return getLocation()
+  }, [getLocation])
 
   useEffect(() => {
     isMountedRef.current = true
@@ -108,16 +138,24 @@ export function useLocation(options: UseLocationOptions = {}): UseLocationReturn
       try {
         setError(null)
         setLoading(true)
-
-        const { status } = await Location.requestForegroundPermissionsAsync()
-
-        if (status !== Location.PermissionStatus.GRANTED) {
-          throw new Error("Location permission denied")
-        }
+        await requestPermission()
 
         if (oneTime || !interval) {
-          await getLocation()
+          const nextLocation = await readCurrentLocation()
+
+          if (isMountedRef.current) {
+            setLocation(nextLocation)
+            setLoading(false)
+          }
+
           return
+        }
+
+        const nextLocation = await readCurrentLocation()
+
+        if (isMountedRef.current) {
+          setLocation(nextLocation)
+          setLoading(false)
         }
 
         subscriptionRef.current = await Location.watchPositionAsync(
@@ -125,21 +163,12 @@ export function useLocation(options: UseLocationOptions = {}): UseLocationReturn
             accuracy: enableHighAccuracy
               ? Location.Accuracy.High
               : Location.Accuracy.Balanced,
-            distanceInterval: 0,
+            distanceInterval,
             timeInterval: interval,
           },
           (currentLocation) => {
             if (isMountedRef.current) {
-              setLocation({
-                latitude: currentLocation.coords.latitude,
-                longitude: currentLocation.coords.longitude,
-                accuracy: currentLocation.coords.accuracy,
-                altitude: currentLocation.coords.altitude,
-                altitudeAccuracy: currentLocation.coords.altitudeAccuracy,
-                heading: currentLocation.coords.heading,
-                speed: currentLocation.coords.speed,
-                timestamp: currentLocation.timestamp,
-              })
+              setLocation(mapLocationData(currentLocation))
               setLoading(false)
             }
           }
@@ -158,12 +187,13 @@ export function useLocation(options: UseLocationOptions = {}): UseLocationReturn
       isMountedRef.current = false
       stopLocationUpdates()
     }
-  }, [enableHighAccuracy, interval, oneTime, getLocation, stopLocationUpdates])
+  }, [distanceInterval, enableHighAccuracy, interval, oneTime, mapLocationData, readCurrentLocation, requestPermission, stopLocationUpdates])
 
   return {
     location,
     loading,
     error,
     stopLocationUpdates,
+    refreshLocation,
   }
 }

@@ -5,6 +5,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: "Cash Finder",
   slug: "cash-finder",
   version: "1.0.0",
+  owner: "ahmedshehata",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: "cashfinder",
@@ -15,6 +16,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     appEnv: process.env.APP_ENV || "development",
     hereMapsApiKey: process.env.HERE_MAPS_API_KEY || "",
     hereMapsBaseUrl: process.env.HERE_MAPS_BASE_URL || "https://browse.search.hereapi.com/v1",
+    eas: {
+      projectId: "47a287aa-f6b4-49bc-8396-2df75fa99853",
+    },
   },
   ios: {
     supportsTablet: true,
@@ -56,6 +60,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     "expo-router",
+    "expo-localization",
     [
       "expo-location",
       {

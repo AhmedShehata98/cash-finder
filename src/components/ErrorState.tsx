@@ -1,4 +1,6 @@
 import { View, Text, Pressable, StyleSheet } from "react-native"
+import { MaterialIcons } from "@expo/vector-icons"
+import { useI18n } from "@/i18n"
 import { colors } from "@/theme"
 import { spacing } from "@/theme"
 import { typography } from "@/theme"
@@ -9,19 +11,21 @@ type ErrorStateProps = {
 }
 
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
+  const { t } = useI18n()
+
   return (
-    <View style={styles.container} accessibilityLabel="An error occurred">
+    <View style={styles.container} accessibilityLabel={t("discover.errorAccessibility")}>
       <View style={styles.content}>
-        <Text style={styles.illustration}>⚠️</Text>
-        <Text style={styles.title}>Something went wrong</Text>
+        <MaterialIcons name="error-outline" size={48} color={colors.error[500]} />
+        <Text style={styles.title}>{t("discover.errorTitle")}</Text>
         <Text style={styles.message}>{message}</Text>
         <Pressable
           style={({ pressed }) => [styles.retryButton, pressed && styles.retryButtonPressed]}
           onPress={onRetry}
           accessibilityRole="button"
-          accessibilityLabel="Retry"
+          accessibilityLabel={t("common.retry")}
         >
-          <Text style={styles.retryButtonText}>Try Again</Text>
+          <Text style={styles.retryButtonText}>{t("common.retry")}</Text>
         </Pressable>
       </View>
     </View>
@@ -38,10 +42,6 @@ const styles = StyleSheet.create({
   content: {
     alignItems: "center",
     gap: spacing.md,
-  },
-  illustration: {
-    fontSize: 48,
-    marginBottom: spacing.sm,
   },
   title: {
     fontSize: typography.fontSize.xl,

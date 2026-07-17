@@ -1,7 +1,8 @@
 import { View, Text, Pressable, StyleSheet } from "react-native"
 import { Link } from "expo-router"
+import { MaterialIcons } from "@expo/vector-icons"
+import { useI18n } from "@/i18n"
 import { FinancialLocation, LocationType, ServiceProvider } from "@/types"
-import { formatDistance } from "@/services/location.service"
 import { colors } from "@/theme"
 import { spacing } from "@/theme"
 import { typography } from "@/theme"
@@ -21,44 +22,70 @@ function getTypeBadgeColor(type: LocationType): string {
   }
 }
 
-function getProviderLogo(type: LocationType, provider: ServiceProvider | null): string | null {
-  if (type === LocationType.ATM) return "🏧"
-  if (type === LocationType.Bank) return "🏦"
-  if (provider === ServiceProvider.Fawry) return "💳"
-  if (provider === ServiceProvider.Bee) return "🐝"
-  if (provider === ServiceProvider.Aman) return "🛡"
-  if (provider === ServiceProvider.Dafaa) return "💵"
-  return "📍"
+function getLocationIcon(type: LocationType): keyof typeof MaterialIcons.glyphMap {
+  switch (type) {
+    case LocationType.ATM:
+      return "atm"
+    case LocationType.Bank:
+      return "account-balance"
+    case LocationType.FinancialServiceProvider:
+    default:
+      return "currency-exchange"
+  }
+}
+
+function getProviderIcon(provider: ServiceProvider | null): keyof typeof MaterialIcons.glyphMap {
+  switch (provider) {
+    case ServiceProvider.Fawry:
+      return "credit-card"
+    case ServiceProvider.Bee:
+      return "sync"
+    case ServiceProvider.Aman:
+      return "shield"
+    case ServiceProvider.Dafaa:
+      return "payments"
+    default:
+      return "currency-exchange"
+  }
 }
 
 function getOpenStatusLabel(isOpen: boolean | null): string | null {
   if (isOpen === null) return null
-  return isOpen ? "Open" : "Closed"
+  return isOpen ? "open" : "closed"
 }
 
 export function LocationCard({ item }: LocationCardProps) {
+  const { formatDistance, getLocationTypeLabel, getProviderLabel, isRTL, t } = useI18n()
   const badgeColor = getTypeBadgeColor(item.type)
-  const logo = item.logo || getProviderLogo(item.type, item.provider)
   const openLabel = getOpenStatusLabel(item.isOpen)
+  const badgeText = item.category?.name ?? getLocationTypeLabel(item.type)
+  const providerLabel = item.provider ? getProviderLabel(item.provider) : null
 
   return (
     <Link
       href={`/nearby/${item.id}`}
       asChild
-      accessibilityLabel={`${item.name}, ${item.type}, ${item.distanceFromUser ? formatDistance(item.distanceFromUser) : ""}, ${item.address}`}
+      accessibilityLabel={`${item.name}, ${badgeText}, ${item.distanceFromUser ? formatDistance(item.distanceFromUser) : ""}, ${item.address}`}
       accessibilityRole="button"
     >
       <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
-        <View style={styles.cardContent}>
+        <View style={[styles.cardContent, isRTL && styles.cardContentRtl]}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText} accessibilityElementsHidden>
-              {logo}
-            </Text>
+            {item.logo ? (
+              <Text style={styles.logoText}>{item.logo}</Text>
+            ) : (
+              <MaterialIcons
+                name={getLocationIcon(item.type)}
+                size={28}
+                color={colors.primary[600]}
+                accessibilityElementsHidden
+              />
+            )}
           </View>
 
           <View style={styles.infoContainer}>
-            <View style={styles.nameRow}>
-              <Text style={styles.name} numberOfLines={1}>
+            <View style={[styles.nameRow, isRTL && styles.nameRowRtl]}>
+              <Text style={[styles.name, isRTL && styles.textRtl]} numberOfLines={1}>
                 {item.name}
               </Text>
               {openLabel && (
@@ -71,30 +98,31 @@ export function LocationCard({ item }: LocationCardProps) {
                         : colors.error[50],
                     },
                   ]}
-                  accessibilityLabel={openLabel}
+                  accessibilityLabel={t(`location.${openLabel}` as const)}
                 >
                   <Text
                     style={[
                       styles.openBadgeText,
+                      isRTL && styles.textRtl,
                       {
                         color: item.isOpen ? colors.success[700] : colors.error[700],
                       },
                     ]}
                   >
-                    {openLabel}
+                    {t(`location.${openLabel}` as const)}
                   </Text>
                 </View>
               )}
             </View>
 
-            <Text style={styles.address} numberOfLines={1}>
+            <Text style={[styles.address, isRTL && styles.textRtl]} numberOfLines={1}>
               {item.address}
             </Text>
 
-            <View style={styles.metaRow}>
+            <View style={[styles.metaRow, isRTL && styles.metaRowRtl]}>
               {item.distanceFromUser !== null && (
-                <View style={styles.distanceContainer}>
-                  <Text style={styles.distanceIcon}>📏</Text>
+                <View style={[styles.distanceContainer, isRTL && styles.distanceContainerRtl]}>
+                  <MaterialIcons name="straighten" size={14} color={colors.primary[600]} />
                   <Text style={styles.distanceText}>
                     {formatDistance(item.distanceFromUser)}
                   </Text>
@@ -103,22 +131,30 @@ export function LocationCard({ item }: LocationCardProps) {
 
               <View
                 style={[styles.typeBadge, { backgroundColor: badgeColor }]}
-                accessibilityLabel={item.type}
+                accessibilityLabel={badgeText}
               >
-                <Text style={styles.typeBadgeText}>{item.type}</Text>
+                <Text style={[styles.typeBadgeText, isRTL && styles.textRtl]}>{badgeText}</Text>
               </View>
             </View>
 
-            {item.type === LocationType.FinancialServiceProvider && item.provider && (
-              <View style={styles.providerRow}>
-                <Text style={styles.providerText}>{item.provider}</Text>
+            {item.type === LocationType.FinancialServiceProvider && providerLabel && (
+              <View style={[styles.providerRow, isRTL && styles.providerRowRtl]}>
+                <MaterialIcons
+                  name={getProviderIcon(item.provider)}
+                  size={12}
+                  color={colors.neutral[500]}
+                />
+                <Text style={[styles.providerText, isRTL && styles.textRtl]}>{providerLabel}</Text>
               </View>
             )}
           </View>
 
-          <Text style={styles.chevron} accessibilityElementsHidden>
-            ›
-          </Text>
+          <MaterialIcons
+            name={isRTL ? "chevron-left" : "chevron-right"}
+            size={24}
+            color={colors.neutral[300]}
+            accessibilityElementsHidden
+          />
         </View>
       </Pressable>
     </Link>
@@ -149,6 +185,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.sm,
   },
+  cardContentRtl: {
+    flexDirection: "row-reverse",
+  },
   logoContainer: {
     width: 56,
     height: 56,
@@ -168,6 +207,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
+  },
+  nameRowRtl: {
+    flexDirection: "row-reverse",
   },
   name: {
     fontSize: typography.fontSize.lg,
@@ -194,13 +236,17 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     marginTop: 2,
   },
+  metaRowRtl: {
+    flexDirection: "row-reverse",
+    justifyContent: "flex-end",
+  },
   distanceContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: 2,
   },
-  distanceIcon: {
-    fontSize: 12,
+  distanceContainerRtl: {
+    flexDirection: "row-reverse",
   },
   distanceText: {
     fontSize: typography.fontSize.sm,
@@ -222,14 +268,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.xs,
   },
+  providerRowRtl: {
+    flexDirection: "row-reverse",
+  },
   providerText: {
     fontSize: typography.fontSize.xs,
     color: colors.neutral[500],
     fontWeight: typography.fontWeight.medium,
   },
-  chevron: {
-    fontSize: 24,
-    color: colors.neutral[300],
-    fontWeight: typography.fontWeight.regular,
+  textRtl: {
+    textAlign: "right",
+    writingDirection: "rtl",
   },
 })

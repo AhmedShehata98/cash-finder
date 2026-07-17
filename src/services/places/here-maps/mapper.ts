@@ -1,6 +1,7 @@
 import { LocationType, ServiceProvider } from "@/types"
-import type { FinancialLocation } from "@/types"
+import type { FinancialLocation, FinancialLocationCategory, OpeningHourInfo } from "@/types"
 import type { HereMapsPlace, HereMapsCategory } from "./types"
+import { ATM_CATEGORY, BANK_CATEGORY, MONEY_TRANSFER_CATEGORY } from "./types"
 
 const KNOWN_SERVICE_PROVIDERS: Record<string, ServiceProvider> = {
   fawry: ServiceProvider.Fawry,
@@ -19,23 +20,57 @@ function detectServiceProvider(title: string): ServiceProvider | null {
   return null
 }
 
-function inferLocationType(categories: HereMapsCategory[]): LocationType {
-  const categoryIds = categories.map((c) => c.id)
+function findPrimaryCategory(categories: HereMapsCategory[]): HereMapsCategory | null {
+  if (categories.length === 0) return null
+  const primary = categories.find((category) => category.primary === true)
+  return primary ?? categories[0] ?? null
+}
 
-  if (categoryIds.some((id) => id.startsWith("700-7000-0117"))) {
+function inferLocationType(categories: HereMapsCategory[]): LocationType {
+  const categoryIds = categories.map((category) => category.id)
+
+  if (categoryIds.some((id) => id === ATM_CATEGORY || id.startsWith("700-7010-"))) {
     return LocationType.ATM
   }
 
-  if (categoryIds.some((id) => id.startsWith("700-7000-0115"))) {
+  if (categoryIds.some((id) => id === BANK_CATEGORY || id.startsWith("700-7000-"))) {
     return LocationType.Bank
   }
 
-  const title = (categories[0]?.name || "").toLowerCase()
-  if (title.includes("bank") || title.includes("branch")) {
+  if (categoryIds.some((id) => id === MONEY_TRANSFER_CATEGORY || id.startsWith("700-7050-"))) {
+    return LocationType.FinancialServiceProvider
+  }
+
+  const firstName = categories[0]?.name.toLowerCase() ?? ""
+  if (firstName.includes("bank") || firstName.includes("branch")) {
     return LocationType.Bank
+  }
+
+  if (firstName.includes("atm")) {
+    return LocationType.ATM
   }
 
   return LocationType.FinancialServiceProvider
+}
+
+function extractPhone(place: HereMapsPlace): string | null {
+  const phones = place.contacts?.flatMap((c) => c.phone ?? [])
+  return phones && phones.length > 0 ? phones[0]?.value ?? null : null
+}
+
+function extractWebsite(place: HereMapsPlace): string | null {
+  const websites = place.contacts?.flatMap((c) => c.www ?? [])
+  return websites && websites.length > 0 ? websites[0]?.value ?? null : null
+}
+
+function extractEmail(place: HereMapsPlace): string | null {
+  const emails = place.contacts?.flatMap((c) => c.email ?? [])
+  return emails && emails.length > 0 ? emails[0]?.value ?? null : null
+}
+
+function extractOpeningHours(place: HereMapsPlace): OpeningHourInfo[] | null {
+  if (!place.openingHours || place.openingHours.length === 0) return null
+  return place.openingHours.map((oh) => ({ text: oh.text, isOpen: oh.isOpen }))
 }
 
 export function mapHereMapsPlaceToFinancialLocation(
@@ -44,18 +79,27 @@ export function mapHereMapsPlaceToFinancialLocation(
   _userLng: number
 ): FinancialLocation {
   const isOpen = place.openingHours?.some((oh) => oh.isOpen) ?? null
+  const primaryCategory = findPrimaryCategory(place.categories)
+  const category: FinancialLocationCategory | null = primaryCategory
+    ? { id: primaryCategory.id, name: primaryCategory.name }
+    : null
 
   return {
     id: place.id,
     name: place.title,
     logo: place.icon || null,
     type: inferLocationType(place.categories),
+    category,
     provider: detectServiceProvider(place.title),
     latitude: place.position.lat,
     longitude: place.position.lng,
     address: place.address.label,
     distanceFromUser: place.distance ?? null,
     isOpen,
+    phone: extractPhone(place),
+    website: extractWebsite(place),
+    email: extractEmail(place),
+    openingHours: extractOpeningHours(place),
   }
 }
 

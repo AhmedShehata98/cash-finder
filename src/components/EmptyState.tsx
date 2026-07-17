@@ -1,4 +1,6 @@
 import { View, Text, Pressable, StyleSheet } from "react-native"
+import { MaterialIcons } from "@expo/vector-icons"
+import { useI18n } from "@/i18n"
 import { colors } from "@/theme"
 import { spacing } from "@/theme"
 import { typography } from "@/theme"
@@ -8,23 +10,22 @@ type EmptyStateProps = {
 }
 
 export function EmptyState({ onRefresh }: EmptyStateProps) {
+  const { t } = useI18n()
+
   return (
-    <View style={styles.container} accessibilityLabel="No nearby financial locations found">
+    <View style={styles.container} accessibilityLabel={t("discover.noResultsAccessibility")}>
       <View style={styles.content}>
-        <Text style={styles.illustration}>🔍</Text>
-        <Text style={styles.title}>No nearby financial locations found</Text>
-        <Text style={styles.subtitle}>
-          We couldn't find any banks, ATMs, or financial service providers near your current
-          location.
-        </Text>
+        <MaterialIcons name="search-off" size={64} color={colors.neutral[300]} />
+        <Text style={styles.title}>{t("discover.noResultsTitle")}</Text>
+        <Text style={styles.subtitle}>{t("discover.noResultsDescription")}</Text>
         {onRefresh && (
           <Pressable
             style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
             onPress={onRefresh}
             accessibilityRole="button"
-            accessibilityLabel="Refresh search"
+            accessibilityLabel={t("discover.refreshSearchAccessibility")}
           >
-            <Text style={styles.actionButtonText}>Refresh</Text>
+            <Text style={styles.actionButtonText}>{t("common.refresh")}</Text>
           </Pressable>
         )}
       </View>
@@ -42,10 +43,6 @@ const styles = StyleSheet.create({
   content: {
     alignItems: "center",
     gap: spacing.md,
-  },
-  illustration: {
-    fontSize: 64,
-    marginBottom: spacing.sm,
   },
   title: {
     fontSize: typography.fontSize.xl,

@@ -1,1 +1,5 @@
 export { useLocation } from "./useLocation"
+export { useLocationDetail } from "./useLocationDetail"
+export { useNavigationTracking } from "./useNavigationTracking"
+export { useCompassDirection } from "./useCompassDirection"
+export { useRouteEstimates } from "./useRouteEstimates"

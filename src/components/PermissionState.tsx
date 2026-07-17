@@ -1,4 +1,6 @@
 import { View, Text, Pressable, StyleSheet } from "react-native"
+import { MaterialIcons } from "@expo/vector-icons"
+import { useI18n } from "@/i18n"
 import { colors } from "@/theme"
 import { spacing } from "@/theme"
 import { typography } from "@/theme"
@@ -8,15 +10,14 @@ type PermissionStateProps = {
 }
 
 export function PermissionState({ onRequestPermission }: PermissionStateProps) {
+  const { t } = useI18n()
+
   return (
-    <View style={styles.container} accessibilityLabel="Location permission required">
+    <View style={styles.container} accessibilityLabel={t("discover.permissionAccessibility")}>
       <View style={styles.content}>
-        <Text style={styles.illustration}>📍</Text>
-        <Text style={styles.title}>Location Permission Required</Text>
-        <Text style={styles.description}>
-          Cash Finder needs access to your location to show nearby financial services. Your location
-          data is only used to find places near you and is not stored or shared.
-        </Text>
+        <MaterialIcons name="location-on" size={64} color={colors.primary[500]} />
+        <Text style={styles.title}>{t("discover.permissionTitle")}</Text>
+        <Text style={styles.description}>{t("discover.permissionDescription")}</Text>
         <Pressable
           style={({ pressed }) => [
             styles.permissionButton,
@@ -24,9 +25,9 @@ export function PermissionState({ onRequestPermission }: PermissionStateProps) {
           ]}
           onPress={onRequestPermission}
           accessibilityRole="button"
-          accessibilityLabel="Grant location permission"
+          accessibilityLabel={t("discover.grantPermissionAccessibility")}
         >
-          <Text style={styles.permissionButtonText}>Grant Permission</Text>
+          <Text style={styles.permissionButtonText}>{t("discover.grantPermission")}</Text>
         </Pressable>
       </View>
     </View>
@@ -43,10 +44,6 @@ const styles = StyleSheet.create({
   content: {
     alignItems: "center",
     gap: spacing.md,
-  },
-  illustration: {
-    fontSize: 64,
-    marginBottom: spacing.sm,
   },
   title: {
     fontSize: typography.fontSize.xl,

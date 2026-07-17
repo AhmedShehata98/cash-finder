@@ -1,97 +1,148 @@
-import { useState, useCallback, useMemo } from "react"
-import { View, StyleSheet } from "react-native"
-import { useLocation } from "@/hooks"
-import { useNearbyLocations } from "../hooks/useNearbyLocations"
-import { SearchBar } from "@/components/SearchBar"
+import { CategoryFilterSheet } from "@/components/CategoryFilterSheet"
 import { EmptyState } from "@/components/EmptyState"
 import { ErrorState } from "@/components/ErrorState"
+import { FilterButton } from "@/components/FilterButton"
 import { PermissionState } from "@/components/PermissionState"
-import { CategoryFilterBar } from "./CategoryFilterBar"
-import { LocationList } from "./LocationList"
-import { serviceCategories } from "@/constants/service-categories"
+import { SearchBar } from "@/components/SearchBar"
+import { SkeletonCard } from "@/components/SkeletonCard"
+import { ALL_CATEGORIES_KEY, getCategoryDefinition } from "@/constants/service-categories"
+import { useLocation } from "@/hooks"
+import { useI18n } from "@/i18n"
 import { colors } from "@/theme"
+import { useQueryClient } from "@tanstack/react-query"
+import { useCallback, useMemo, useState } from "react"
+import { StyleSheet, View } from "react-native"
+import { useNearbyLocations } from "../hooks/useNearbyLocations"
+import { LocationList } from "./LocationList"
 
 const SEARCH_RADIUS = 5000
-const SEARCH_LIMIT = 50
+const PAGE_LIMIT = 20
+const LIVE_UPDATE_INTERVAL_MS = 15000
+const LIVE_UPDATE_DISTANCE_METERS = 75
+
+function flattenAndDeduplicate<T extends { id: string }>(pages: { items: T[] }[]): T[] {
+  const seen = new Set<string>()
+  const result: T[] = []
+
+  for (const page of pages) {
+    for (const item of page.items) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id)
+        result.push(item)
+      }
+    }
+  }
+
+  return result
+}
 
 export function NearbyScreen() {
+  const { t, getCategoryLabel } = useI18n()
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState("all")
+  const [selectedCategory, setSelectedCategory] = useState("atm")
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false)
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false)
+
+  const queryClient = useQueryClient()
+
   const {
     location: userLocation,
     loading: locationLoading,
     error: locationError,
-  } = useLocation({ oneTime: true, enableHighAccuracy: true })
+    refreshLocation,
+  } = useLocation({
+    enableHighAccuracy: true,
+    interval: LIVE_UPDATE_INTERVAL_MS,
+    distanceInterval: LIVE_UPDATE_DISTANCE_METERS,
+  })
+
+  const selectedCategoryDef = getCategoryDefinition(selectedCategory)
+  const categoryFilterCategories = selectedCategoryDef?.categories
 
   const {
-    data: locations = [],
+    data,
     isLoading,
     isError,
     error: queryError,
-    isFetching,
-    refetch,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
   } = useNearbyLocations({
     latitude: userLocation?.latitude ?? null,
     longitude: userLocation?.longitude ?? null,
     radius: SEARCH_RADIUS,
-    limit: SEARCH_LIMIT,
+    limit: PAGE_LIMIT,
+    query: searchQuery,
+    categories: categoryFilterCategories,
   })
 
-  const selectedCategoryDef = useMemo(
-    () => serviceCategories.find((c) => c.key === selectedCategory),
-    [selectedCategory]
-  )
+  const locations = useMemo(() => {
+    return data ? flattenAndDeduplicate(data.pages) : []
+  }, [data])
 
-  const filteredLocations = useMemo(() => {
-    let filtered = locations
+  const reloadNearbyLocations = useCallback(async () => {
+    await queryClient.resetQueries({ queryKey: ["nearby-locations"] })
+  }, [queryClient])
 
-    if (selectedCategory !== "all" && selectedCategoryDef) {
-      filtered = filtered.filter((loc) => {
-        if (selectedCategoryDef.locationType && loc.type !== selectedCategoryDef.locationType) {
-          return false
-        }
-        if (
-          selectedCategoryDef.serviceProvider &&
-          loc.provider !== selectedCategoryDef.serviceProvider
-        ) {
-          return false
-        }
-        return true
-      })
+  const handleRefresh = useCallback(async () => {
+    setIsPullRefreshing(true)
+
+    try {
+      await refreshLocation()
+      await reloadNearbyLocations()
+    } finally {
+      setIsPullRefreshing(false)
     }
-
-    if (searchQuery.trim().length > 0) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(
-        (loc) =>
-          loc.name.toLowerCase().includes(query) ||
-          loc.address.toLowerCase().includes(query) ||
-          (loc.provider && loc.provider.toLowerCase().includes(query))
-      )
-    }
-
-    return filtered
-  }, [locations, selectedCategory, searchQuery, selectedCategoryDef])
-
-  const handleRefresh = useCallback(() => {
-    refetch()
-  }, [refetch])
+  }, [refreshLocation, reloadNearbyLocations])
 
   const handleEndReached = useCallback(() => {
-    // Pagination placeholder — HERE Maps Browse API returns all results in one call
-    // Extend radius or use offset-based browsing for true pagination with a provider that supports it
-  }, [])
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage()
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const handlePermissionRequest = useCallback(() => {
-    refetch()
-  }, [refetch])
+    void handleRefresh()
+  }, [handleRefresh])
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery("")
+  }, [])
+
+  const filterLabel = selectedCategoryDef
+    ? getCategoryLabel(selectedCategoryDef.key)
+    : t("discover.filter")
+  const isFilterActive = selectedCategory !== ALL_CATEGORIES_KEY
+
+  const searchHeader = (
+    <SearchBar
+      value={searchQuery}
+      onChangeText={setSearchQuery}
+      onClear={handleClearSearch}
+      filterButton={
+        <FilterButton
+          label={filterLabel}
+          onPress={() => setIsFilterSheetOpen(true)}
+          isActive={isFilterActive}
+        />
+      }
+    />
+  )
+
+  const categoryFilterSheet = (
+    <CategoryFilterSheet
+      isOpen={isFilterSheetOpen}
+      onClose={() => setIsFilterSheetOpen(false)}
+      selectedCategory={selectedCategory}
+      onSelectCategory={setSelectedCategory}
+    />
+  )
 
   if (locationLoading) {
     return (
       <View style={styles.container}>
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} onClear={() => setSearchQuery("")} />
-        <CategoryFilterBar selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
-        <EmptyState onRefresh={handleRefresh} />
+        {searchHeader}
+        <SkeletonCard count={5} />
       </View>
     )
   }
@@ -107,12 +158,11 @@ export function NearbyScreen() {
   if (isError) {
     return (
       <View style={styles.container}>
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} onClear={() => setSearchQuery("")} />
-        <CategoryFilterBar selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
+        {searchHeader}
         <ErrorState
           message={
             queryError?.message ||
-            "Unable to load nearby locations. Please check your connection and try again."
+            t("discover.errorMessageNearby")
           }
           onRetry={handleRefresh}
         />
@@ -120,27 +170,28 @@ export function NearbyScreen() {
     )
   }
 
-  if (!isLoading && filteredLocations.length === 0) {
+  if (!isLoading && locations.length === 0) {
     return (
       <View style={styles.container}>
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} onClear={() => setSearchQuery("")} />
-        <CategoryFilterBar selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
+        {searchHeader}
         <EmptyState onRefresh={handleRefresh} />
+        {categoryFilterSheet}
       </View>
     )
   }
 
   return (
     <View style={styles.container}>
-      <SearchBar value={searchQuery} onChangeText={setSearchQuery} onClear={() => setSearchQuery("")} />
-      <CategoryFilterBar selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
+      {searchHeader}
       <LocationList
-        locations={filteredLocations}
-        loading={isLoading}
-        refreshing={isFetching && !isLoading}
+        locations={locations}
+        isLoading={isLoading}
+        isFetchingNextPage={isFetchingNextPage}
+        refreshing={isPullRefreshing}
         onRefresh={handleRefresh}
         onEndReached={handleEndReached}
       />
+      {categoryFilterSheet}
     </View>
   )
 }

@@ -1,12 +1,13 @@
-import { FlatList, RefreshControl, StyleSheet } from "react-native"
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from "react-native"
 import { FinancialLocation } from "@/types"
 import { LocationCard } from "@/components/LocationCard"
 import { SkeletonCard } from "@/components/SkeletonCard"
-import { spacing } from "@/theme"
+import { colors, spacing } from "@/theme"
 
 type LocationListProps = {
   locations: FinancialLocation[]
-  loading: boolean
+  isLoading: boolean
+  isFetchingNextPage: boolean
   refreshing: boolean
   onRefresh: () => void
   onEndReached: () => void
@@ -14,12 +15,13 @@ type LocationListProps = {
 
 export function LocationList({
   locations,
-  loading,
+  isLoading,
+  isFetchingNextPage,
   refreshing,
   onRefresh,
   onEndReached,
 }: LocationListProps) {
-  if (loading && locations.length === 0) {
+  if (isLoading && locations.length === 0) {
     return <SkeletonCard count={5} />
   }
 
@@ -31,11 +33,18 @@ export function LocationList({
       contentContainerStyle={styles.listContent}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2196F3" />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[600]} />
       }
       onEndReached={onEndReached}
       onEndReachedThreshold={0.5}
-      ListFooterComponent={loading ? <SkeletonCard count={2} /> : null}
+      ListFooterComponent={
+        isFetchingNextPage ? (
+          <View style={styles.footer}>
+            <ActivityIndicator size="small" color={colors.primary[600]} />
+            <SkeletonCard count={2} />
+          </View>
+        ) : null
+      }
       accessibilityLabel="Nearby financial locations list"
     />
   )
@@ -43,6 +52,9 @@ export function LocationList({
 
 const styles = StyleSheet.create({
   listContent: {
+    paddingVertical: spacing.sm,
+  },
+  footer: {
     paddingVertical: spacing.sm,
   },
 })

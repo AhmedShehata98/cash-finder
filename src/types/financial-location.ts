@@ -16,15 +16,30 @@ export const ServiceProvider = {
 
 export type ServiceProvider = (typeof ServiceProvider)[keyof typeof ServiceProvider]
 
+export type FinancialLocationCategory = {
+  id: string
+  name: string
+}
+
+export type OpeningHourInfo = {
+  text: string[]
+  isOpen: boolean | null
+}
+
 export type FinancialLocation = {
   id: string
   name: string
   logo: string | null
   type: LocationType
+  category: FinancialLocationCategory | null
   provider: ServiceProvider | null
   latitude: number
   longitude: number
   address: string
   distanceFromUser: number | null
   isOpen: boolean | null
+  phone: string | null
+  website: string | null
+  email: string | null
+  openingHours: OpeningHourInfo[] | null
 }

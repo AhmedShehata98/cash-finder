@@ -1,4 +1,7 @@
+import { ReactNode } from "react"
 import { View, TextInput, Pressable, StyleSheet } from "react-native"
+import { MaterialIcons } from "@expo/vector-icons"
+import { useI18n } from "@/i18n"
 import { colors } from "@/theme"
 import { spacing } from "@/theme"
 import { typography } from "@/theme"
@@ -7,19 +10,28 @@ type SearchBarProps = {
   value: string
   onChangeText: (_text: string) => void
   onClear: () => void
+  filterButton?: ReactNode
 }
 
-export function SearchBar({ value, onChangeText, onClear }: SearchBarProps) {
+export function SearchBar({ value, onChangeText, onClear, filterButton }: SearchBarProps) {
+  const { isRTL, t } = useI18n()
+
   return (
     <View style={styles.container}>
-      <View style={styles.inputWrapper}>
+      <View style={[styles.inputWrapper, isRTL && styles.inputWrapperRtl]}>
+        <MaterialIcons
+          name="search"
+          size={22}
+          color={colors.neutral[400]}
+          style={styles.searchIcon}
+        />
         <TextInput
-          style={styles.input}
-          placeholder="Search locations..."
+          style={[styles.input, isRTL && styles.inputRtl]}
+          placeholder={t("discover.searchPlaceholder")}
           placeholderTextColor={colors.neutral[400]}
           value={value}
           onChangeText={onChangeText}
-          accessibilityLabel="Search financial locations"
+          accessibilityLabel={t("discover.searchAccessibility")}
           accessibilityRole="search"
           returnKeyType="search"
           autoCorrect={false}
@@ -28,14 +40,13 @@ export function SearchBar({ value, onChangeText, onClear }: SearchBarProps) {
           <Pressable
             onPress={onClear}
             style={styles.clearButton}
-            accessibilityLabel="Clear search"
+            accessibilityLabel={t("discover.clearSearchAccessibility")}
             accessibilityRole="button"
           >
-            <View style={styles.clearIcon}>
-              <View style={styles.clearIconLine} />
-            </View>
+            <MaterialIcons name="close" size={20} color={colors.neutral[500]} />
           </Pressable>
         )}
+        {filterButton}
       </View>
     </View>
   )
@@ -54,6 +65,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.neutral[200],
     paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  inputWrapperRtl: {
+    flexDirection: "row-reverse",
+  },
+  searchIcon: {
+    marginRight: -spacing.xs,
   },
   input: {
     flex: 1,
@@ -61,22 +79,11 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.md,
     color: colors.neutral[900],
   },
+  inputRtl: {
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
   clearButton: {
     padding: 4,
-  },
-  clearIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.neutral[300],
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  clearIconLine: {
-    width: 10,
-    height: 2,
-    backgroundColor: colors.white,
-    borderRadius: 1,
-    transform: [{ rotate: "45deg" }],
   },
 })

@@ -1,5 +1,4 @@
-import { FinancialLocation } from "@/types"
-import { PlacesProvider, NearbySearchParams } from "./places"
+import { PlacesProvider, NearbySearchParams, PaginatedNearbySearchResult } from "./places"
 
 type FinancialLocationsServiceDeps = {
   placesProvider: PlacesProvider
@@ -9,7 +8,7 @@ export function createFinancialLocationsService(deps: FinancialLocationsServiceD
   const { placesProvider } = deps
 
   return {
-    searchNearby: async (params: NearbySearchParams): Promise<FinancialLocation[]> => {
+    searchNearby: async (params: NearbySearchParams): Promise<PaginatedNearbySearchResult> => {
       return placesProvider.searchNearby(params)
     },
   }

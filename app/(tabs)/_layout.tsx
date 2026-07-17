@@ -1,13 +1,15 @@
-import { SymbolView } from 'expo-symbols';
-import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Tabs } from 'expo-router';
+import { MaterialIcons } from '@expo/vector-icons';
+import { StyleSheet } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { useI18n } from '@/i18n';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { t } = useI18n()
 
   return (
     <Tabs
@@ -18,69 +20,49 @@ export default function TabLayout() {
       <Tabs.Screen
         name="discover"
         options={{
-          title: 'Discover',
-          headerTitle: 'Nearby Financial Services',
+          title: t('tabs.discover'),
+          headerTitle: t('headers.nearbyFinancialServices'),
           tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'location.circle',
-                android: 'location_on',
-                web: 'location_on',
-              }}
-              tintColor={color}
-              size={28}
-            />
+            <MaterialIcons name="explore" size={28} color={color} />
           ),
           headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <SymbolView
-                    name={{ ios: 'info.circle', android: 'info', web: 'info' }}
-                    size={25}
-                    tintColor={Colors[colorScheme].text}
-                    style={{ opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
+            <MaterialIcons
+              name="info-outline"
+              size={25}
+              color={Colors[colorScheme].text}
+              style={styles.headerIcon}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: t('tabs.settings'),
+          headerTitle: t('headers.settings'),
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons name="language" size={28} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen
         name="two"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
+          href: null,
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  headerIcon: {
+    marginRight: 15,
+  },
+});
