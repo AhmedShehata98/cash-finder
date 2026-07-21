@@ -2,7 +2,13 @@ import { View, Text, Pressable, StyleSheet } from "react-native"
 import { Link } from "expo-router"
 import { MaterialIcons } from "@expo/vector-icons"
 import { useI18n } from "@/i18n"
-import { FinancialLocation, LocationType, ServiceProvider } from "@/types"
+import {
+  CashAvailabilityStatus,
+  FinancialLocation,
+  FinancialServiceType,
+  LocationType,
+  ServiceProvider,
+} from "@/types"
 import { colors } from "@/theme"
 import { spacing } from "@/theme"
 import { typography } from "@/theme"
@@ -11,14 +17,16 @@ type LocationCardProps = {
   item: FinancialLocation
 }
 
-function getTypeBadgeColor(type: LocationType): string {
-  switch (type) {
-    case LocationType.Bank:
-      return colors.primary[600]
-    case LocationType.ATM:
+function getServiceTypeBadgeColor(serviceType: FinancialServiceType): string {
+  switch (serviceType) {
+    case FinancialServiceType.ATM:
       return colors.success[600]
-    case LocationType.FinancialServiceProvider:
+    case FinancialServiceType.BankBranch:
+      return colors.primary[600]
+    case FinancialServiceType.CashDepositMachine:
       return colors.secondary[600]
+    default:
+      return colors.neutral[700]
   }
 }
 
@@ -54,18 +62,45 @@ function getOpenStatusLabel(isOpen: boolean | null): string | null {
   return isOpen ? "open" : "closed"
 }
 
+function getCurrentStatusKey(item: FinancialLocation) {
+  if (item.isOpen === false) return "location.closed"
+
+  if (item.cashAvailabilityStatus === CashAvailabilityStatus.Available) {
+    return "location.cashAvailable"
+  }
+
+  if (item.cashAvailabilityStatus === CashAvailabilityStatus.Unavailable) {
+    return "location.cashUnavailable"
+  }
+
+  if (item.isOpen === true) return "location.openCashUnconfirmed"
+
+  return "location.statusUnknown"
+}
+
 export function LocationCard({ item }: LocationCardProps) {
-  const { formatDistance, getLocationTypeLabel, getProviderLabel, isRTL, t } = useI18n()
-  const badgeColor = getTypeBadgeColor(item.type)
+  const {
+    formatDistance,
+    formatLastConfirmed,
+    formatPercent,
+    getFinancialServiceTypeLabel,
+    getLocationTypeLabel,
+    getProviderLabel,
+    isRTL,
+    t,
+  } = useI18n()
+  const badgeColor = getServiceTypeBadgeColor(item.primaryServiceType)
   const openLabel = getOpenStatusLabel(item.isOpen)
-  const badgeText = item.category?.name ?? getLocationTypeLabel(item.type)
+  const badgeText = getFinancialServiceTypeLabel(item.primaryServiceType)
+  const serviceTypeText = item.serviceTypes.map(getFinancialServiceTypeLabel).join(", ")
   const providerLabel = item.provider ? getProviderLabel(item.provider) : null
+  const statusLabel = t(getCurrentStatusKey(item))
 
   return (
     <Link
       href={`/nearby/${item.id}`}
       asChild
-      accessibilityLabel={`${item.name}, ${badgeText}, ${item.distanceFromUser ? formatDistance(item.distanceFromUser) : ""}, ${item.address}`}
+      accessibilityLabel={`${item.name}, ${badgeText}, ${statusLabel}, ${item.distanceFromUser ? formatDistance(item.distanceFromUser) : ""}, ${item.address}`}
       accessibilityRole="button"
     >
       <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
@@ -119,6 +154,10 @@ export function LocationCard({ item }: LocationCardProps) {
               {item.address}
             </Text>
 
+            <Text style={[styles.serviceTypesText, isRTL && styles.textRtl]} numberOfLines={1}>
+              {serviceTypeText || getLocationTypeLabel(item.type)}
+            </Text>
+
             <View style={[styles.metaRow, isRTL && styles.metaRowRtl]}>
               {item.distanceFromUser !== null && (
                 <View style={[styles.distanceContainer, isRTL && styles.distanceContainerRtl]}>
@@ -147,6 +186,32 @@ export function LocationCard({ item }: LocationCardProps) {
                 <Text style={[styles.providerText, isRTL && styles.textRtl]}>{providerLabel}</Text>
               </View>
             )}
+
+            <View style={styles.reliabilityGrid}>
+              <View style={[styles.reliabilityItem, isRTL && styles.reliabilityItemRtl]}>
+                <MaterialIcons name="info" size={14} color={colors.neutral[500]} />
+                <Text style={[styles.reliabilityText, isRTL && styles.textRtl]} numberOfLines={1}>
+                  {statusLabel}
+                </Text>
+              </View>
+              <View style={[styles.reliabilityItem, isRTL && styles.reliabilityItemRtl]}>
+                <MaterialIcons name="verified" size={14} color={colors.neutral[500]} />
+                <Text style={[styles.reliabilityText, isRTL && styles.textRtl]} numberOfLines={1}>
+                  {t("location.confidenceValue", {
+                    value:
+                      item.confidenceScore === null
+                        ? t("misc.unavailable")
+                        : formatPercent(item.confidenceScore),
+                  })}
+                </Text>
+              </View>
+              <View style={[styles.reliabilityItem, isRTL && styles.reliabilityItemRtl]}>
+                <MaterialIcons name="schedule" size={14} color={colors.neutral[500]} />
+                <Text style={[styles.reliabilityText, isRTL && styles.textRtl]} numberOfLines={1}>
+                  {formatLastConfirmed(item.lastConfirmedAt)}
+                </Text>
+              </View>
+            </View>
           </View>
 
           <MaterialIcons
@@ -230,6 +295,10 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.neutral[600],
   },
+  serviceTypesText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.neutral[500],
+  },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -275,6 +344,23 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     color: colors.neutral[500],
     fontWeight: typography.fontWeight.medium,
+  },
+  reliabilityGrid: {
+    gap: 3,
+    marginTop: 2,
+  },
+  reliabilityItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  reliabilityItemRtl: {
+    flexDirection: "row-reverse",
+  },
+  reliabilityText: {
+    flex: 1,
+    fontSize: typography.fontSize.xs,
+    color: colors.neutral[600],
   },
   textRtl: {
     textAlign: "right",

@@ -1,4 +1,4 @@
-import { LocationType, ServiceProvider } from "@/types"
+import { CashAvailabilityStatus, FinancialServiceType, LocationType, ServiceProvider } from "@/types"
 import type { FinancialLocation, FinancialLocationCategory, OpeningHourInfo } from "@/types"
 import type { HereMapsPlace, HereMapsCategory } from "./types"
 import { ATM_CATEGORY, BANK_CATEGORY, MONEY_TRANSFER_CATEGORY } from "./types"
@@ -7,6 +7,7 @@ const KNOWN_SERVICE_PROVIDERS: Record<string, ServiceProvider> = {
   fawry: ServiceProvider.Fawry,
   bee: ServiceProvider.Bee,
   aman: ServiceProvider.Aman,
+  masary: ServiceProvider.Masary,
   dafaa: ServiceProvider.Dafaa,
 }
 
@@ -53,6 +54,87 @@ function inferLocationType(categories: HereMapsCategory[]): LocationType {
   return LocationType.FinancialServiceProvider
 }
 
+function inferServiceTypes(
+  title: string,
+  categories: HereMapsCategory[],
+  provider: ServiceProvider | null
+): FinancialServiceType[] {
+  const lowerTitle = title.toLowerCase()
+  const categoryIds = categories.map((category) => category.id)
+  const categoryNames = categories.map((category) => category.name.toLowerCase())
+  const types = new Set<FinancialServiceType>()
+
+  if (
+    categoryIds.some((id) => id === ATM_CATEGORY || id.startsWith("700-7010-")) ||
+    lowerTitle.includes("atm") ||
+    categoryNames.some((name) => name.includes("atm"))
+  ) {
+    types.add(FinancialServiceType.ATM)
+  }
+
+  if (
+    categoryIds.some((id) => id === BANK_CATEGORY || id.startsWith("700-7000-")) ||
+    lowerTitle.includes("branch") ||
+    categoryNames.some((name) => name.includes("bank") || name.includes("branch"))
+  ) {
+    types.add(FinancialServiceType.BankBranch)
+  }
+
+  if (
+    lowerTitle.includes("deposit") ||
+    lowerTitle.includes("cdm") ||
+    categoryNames.some((name) => name.includes("deposit"))
+  ) {
+    types.add(FinancialServiceType.CashDepositMachine)
+  }
+
+  switch (provider) {
+    case ServiceProvider.Fawry:
+      types.add(FinancialServiceType.Fawry)
+      break
+    case ServiceProvider.Aman:
+      types.add(FinancialServiceType.Aman)
+      break
+    case ServiceProvider.Masary:
+      types.add(FinancialServiceType.Masary)
+      break
+    case ServiceProvider.Bee:
+      types.add(FinancialServiceType.Bee)
+      break
+    case ServiceProvider.Dafaa:
+      types.add(FinancialServiceType.Dafaa)
+      break
+  }
+
+  if (
+    types.size === 0 &&
+    categoryIds.some((id) => id === MONEY_TRANSFER_CATEGORY || id.startsWith("700-7050-"))
+  ) {
+    types.add(FinancialServiceType.OtherProvider)
+  }
+
+  if (types.size === 0) {
+    types.add(FinancialServiceType.OtherProvider)
+  }
+
+  return Array.from(types)
+}
+
+function getPrimaryServiceType(
+  type: LocationType,
+  serviceTypes: FinancialServiceType[]
+): FinancialServiceType {
+  if (type === LocationType.ATM && serviceTypes.includes(FinancialServiceType.ATM)) {
+    return FinancialServiceType.ATM
+  }
+
+  if (type === LocationType.Bank && serviceTypes.includes(FinancialServiceType.BankBranch)) {
+    return FinancialServiceType.BankBranch
+  }
+
+  return serviceTypes[0] ?? FinancialServiceType.OtherProvider
+}
+
 function extractPhone(place: HereMapsPlace): string | null {
   const phones = place.contacts?.flatMap((c) => c.phone ?? [])
   return phones && phones.length > 0 ? phones[0]?.value ?? null : null
@@ -83,19 +165,28 @@ export function mapHereMapsPlaceToFinancialLocation(
   const category: FinancialLocationCategory | null = primaryCategory
     ? { id: primaryCategory.id, name: primaryCategory.name }
     : null
+  const type = inferLocationType(place.categories)
+  const provider = detectServiceProvider(place.title)
+  const serviceTypes = inferServiceTypes(place.title, place.categories, provider)
 
   return {
     id: place.id,
     name: place.title,
     logo: place.icon || null,
-    type: inferLocationType(place.categories),
+    type,
     category,
-    provider: detectServiceProvider(place.title),
+    provider,
+    serviceTypes,
+    primaryServiceType: getPrimaryServiceType(type, serviceTypes),
     latitude: place.position.lat,
     longitude: place.position.lng,
     address: place.address.label,
     distanceFromUser: place.distance ?? null,
     isOpen,
+    cashAvailabilityStatus: CashAvailabilityStatus.Unknown,
+    confidenceScore: null,
+    estimatedSuccessProbability: null,
+    lastConfirmedAt: null,
     phone: extractPhone(place),
     website: extractWebsite(place),
     email: extractEmail(place),

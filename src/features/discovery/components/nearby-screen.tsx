@@ -10,13 +10,18 @@ import { useLocation } from "@/hooks"
 import { useI18n } from "@/i18n"
 import { colors } from "@/theme"
 import { useQueryClient } from "@tanstack/react-query"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { StyleSheet, View } from "react-native"
 import { useNearbyLocations } from "../hooks/useNearbyLocations"
+import {
+  filterAndRankFinancialLocations,
+  type NearbyFilterState,
+} from "../utils/location-ranking"
 import { LocationList } from "./LocationList"
 
 const SEARCH_RADIUS = 5000
 const PAGE_LIMIT = 20
+const SMART_RANKING_PAGE_LIMIT = 5
 const LIVE_UPDATE_INTERVAL_MS = 15000
 const LIVE_UPDATE_DISTANCE_METERS = 75
 
@@ -39,7 +44,13 @@ function flattenAndDeduplicate<T extends { id: string }>(pages: { items: T[] }[]
 export function NearbyScreen() {
   const { t, getCategoryLabel } = useI18n()
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState("atm")
+  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES_KEY)
+  const [filters, setFilters] = useState<NearbyFilterState>({
+    serviceTypes: [],
+    requireHighConfidence: false,
+    requireNearbyDistance: false,
+    requireRecentlyUpdated: false,
+  })
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false)
   const [isPullRefreshing, setIsPullRefreshing] = useState(false)
 
@@ -77,8 +88,21 @@ export function NearbyScreen() {
   })
 
   const locations = useMemo(() => {
-    return data ? flattenAndDeduplicate(data.pages) : []
-  }, [data])
+    return data ? filterAndRankFinancialLocations(flattenAndDeduplicate(data.pages), filters) : []
+  }, [data, filters])
+
+  useEffect(() => {
+    const loadedPageCount = data?.pages.length ?? 0
+
+    if (
+      hasNextPage &&
+      !isFetchingNextPage &&
+      loadedPageCount > 0 &&
+      loadedPageCount < SMART_RANKING_PAGE_LIMIT
+    ) {
+      void fetchNextPage()
+    }
+  }, [data?.pages.length, fetchNextPage, hasNextPage, isFetchingNextPage])
 
   const reloadNearbyLocations = useCallback(async () => {
     await queryClient.resetQueries({ queryKey: ["nearby-locations"] })
@@ -112,7 +136,17 @@ export function NearbyScreen() {
   const filterLabel = selectedCategoryDef
     ? getCategoryLabel(selectedCategoryDef.key)
     : t("discover.filter")
-  const isFilterActive = selectedCategory !== ALL_CATEGORIES_KEY
+  const activeFilterCount =
+    (selectedCategory !== ALL_CATEGORIES_KEY ? 1 : 0) +
+    filters.serviceTypes.length +
+    (filters.requireHighConfidence ? 1 : 0) +
+    (filters.requireNearbyDistance ? 1 : 0) +
+    (filters.requireRecentlyUpdated ? 1 : 0)
+  const isFilterActive = activeFilterCount > 0
+  const displayFilterLabel =
+    activeFilterCount > 0
+      ? t("discover.activeFilters", { count: activeFilterCount })
+      : filterLabel
 
   const searchHeader = (
     <SearchBar
@@ -121,7 +155,7 @@ export function NearbyScreen() {
       onClear={handleClearSearch}
       filterButton={
         <FilterButton
-          label={filterLabel}
+          label={displayFilterLabel}
           onPress={() => setIsFilterSheetOpen(true)}
           isActive={isFilterActive}
         />
@@ -135,6 +169,8 @@ export function NearbyScreen() {
       onClose={() => setIsFilterSheetOpen(false)}
       selectedCategory={selectedCategory}
       onSelectCategory={setSelectedCategory}
+      filters={filters}
+      onChangeFilters={setFilters}
     />
   )
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { calculateHereRoute, type TransportMode } from "@/services/places/here-maps/routing"
+import { calculateRoute, type TransportMode } from "@/services/routing.service"
 
 type LatLng = { latitude: number; longitude: number }
 
@@ -39,8 +39,8 @@ export function useRouteEstimates(
     const fetchEstimates = async () => {
       try {
         const [walk, drive] = await Promise.allSettled([
-          calculateHereRoute(origin, destination, "pedestrian" as TransportMode),
-          calculateHereRoute(origin, destination, "car" as TransportMode),
+          calculateRoute(origin, destination, "pedestrian" as TransportMode),
+          calculateRoute(origin, destination, "car" as TransportMode),
         ])
 
         if (!isMounted) return

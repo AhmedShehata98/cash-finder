@@ -1,0 +1,4 @@
+{
+  "appScheme": "cashfinder",
+  "authCallbackPath": "auth/callback"
+}

@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
-import { getPlacesProvider } from "@/services/provider-registry"
+import { getFinancialServiceById } from "@/services/supabase/financial-services.repository"
 
 export function useLocationDetail(id: string) {
   return useQuery({
     queryKey: ["location-detail", id],
-    queryFn: () => getPlacesProvider().getById(id),
+    queryFn: () => getFinancialServiceById(id),
     enabled: !!id,
     staleTime: 1000 * 60 * 5,
     retry: 2,

@@ -1,21 +1,18 @@
 import { ExpoConfig, ConfigContext } from "expo/config"
+import authConfig from "./auth.config.json"
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "Cash Finder",
   slug: "cash-finder",
-  version: "1.0.0",
+  version: "1.5.0",
   owner: "ahmedshehata",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
-  scheme: "cashfinder",
+  scheme: authConfig.appScheme,
   userInterfaceStyle: "automatic",
   extra: {
-    apiUrl: process.env.API_URL || "https://api.example.com",
-    apiTimeout: process.env.API_TIMEOUT || "30000",
     appEnv: process.env.APP_ENV || "development",
-    hereMapsApiKey: process.env.HERE_MAPS_API_KEY || "",
-    hereMapsBaseUrl: process.env.HERE_MAPS_BASE_URL || "https://browse.search.hereapi.com/v1",
     eas: {
       projectId: "47a287aa-f6b4-49bc-8396-2df75fa99853",
     },

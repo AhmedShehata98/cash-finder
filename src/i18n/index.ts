@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import type { DirectionId } from "@/hooks/useCompassDirection"
-import type { LocationType, ServiceProvider } from "@/types"
+import type { FinancialServiceType, LocationType, ServiceProvider } from "@/types"
 import { messages } from "./messages"
 import { type AppLocale, useLocaleStore } from "@/store/locale-store"
 
@@ -40,6 +40,8 @@ export function useI18n() {
       setLocale,
       t,
       getCategoryLabel: (key: string) => t(`category.${key}` as TranslationKey),
+      getFinancialServiceTypeLabel: (type: FinancialServiceType) =>
+        t(`serviceType.${type}` as TranslationKey),
       getLocationTypeLabel: (type: LocationType) => t(`type.${type}` as TranslationKey),
       getProviderLabel: (provider: ServiceProvider) => t(`provider.${provider}` as TranslationKey),
       getDirectionLabel: (directionId: DirectionId) =>
@@ -60,6 +62,45 @@ export function useI18n() {
         return t("distance.kilometersAwayRounded", {
           value: formatNumber(locale, Math.round(km)),
         })
+      },
+      formatPercent: (value: number) => {
+        return new Intl.NumberFormat(locale, {
+          maximumFractionDigits: 0,
+          minimumFractionDigits: 0,
+          style: "percent",
+        }).format(value / 100)
+      },
+      formatLastConfirmed: (value: string | null) => {
+        if (!value) return t("location.lastConfirmedUnknown")
+
+        const date = new Date(value)
+        if (Number.isNaN(date.getTime())) return t("location.lastConfirmedUnknown")
+
+        return t("location.lastConfirmedValue", {
+          value: new Intl.DateTimeFormat(locale, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          }).format(date),
+        })
+      },
+      formatRelativeTime: (value: string) => {
+        const timestamp = new Date(value).getTime()
+        if (Number.isNaN(timestamp)) return t("misc.unavailable")
+        const seconds = Math.round((timestamp - Date.now()) / 1000)
+        const RelativeTimeFormat = Intl.RelativeTimeFormat
+        if (typeof RelativeTimeFormat !== "function") {
+          return new Intl.DateTimeFormat(locale, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          }).format(new Date(timestamp))
+        }
+        const formatter = new RelativeTimeFormat(locale, { numeric: "auto" })
+        if (Math.abs(seconds) < 60) return formatter.format(seconds, "second")
+        const minutes = Math.round(seconds / 60)
+        if (Math.abs(minutes) < 60) return formatter.format(minutes, "minute")
+        const hours = Math.round(minutes / 60)
+        if (Math.abs(hours) < 24) return formatter.format(hours, "hour")
+        return formatter.format(Math.round(hours / 24), "day")
       },
       formatRemainingDistance: (meters: number | null) => {
         if (meters === null) return t("misc.unavailable")

@@ -35,6 +35,7 @@ type UseLocationOptions = {
   interval?: number
   distanceInterval?: number
   oneTime?: boolean
+  autoStart?: boolean
 }
 
 type UseLocationReturn = {
@@ -46,7 +47,13 @@ type UseLocationReturn = {
 }
 
 export function useLocation(options: UseLocationOptions = {}): UseLocationReturn {
-  const { enableHighAccuracy = true, interval, distanceInterval = 0, oneTime = false } = options
+  const {
+    enableHighAccuracy = true,
+    interval,
+    distanceInterval = 0,
+    oneTime = false,
+    autoStart = true,
+  } = options
 
   const [location, setLocation] = useState<LocationData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -134,6 +141,14 @@ export function useLocation(options: UseLocationOptions = {}): UseLocationReturn
   useEffect(() => {
     isMountedRef.current = true
 
+    if (!autoStart) {
+      setLoading(false)
+      return () => {
+        isMountedRef.current = false
+        stopLocationUpdates()
+      }
+    }
+
     const startLocationUpdates = async () => {
       try {
         setError(null)
@@ -187,7 +202,7 @@ export function useLocation(options: UseLocationOptions = {}): UseLocationReturn
       isMountedRef.current = false
       stopLocationUpdates()
     }
-  }, [distanceInterval, enableHighAccuracy, interval, oneTime, mapLocationData, readCurrentLocation, requestPermission, stopLocationUpdates])
+  }, [autoStart, distanceInterval, enableHighAccuracy, interval, oneTime, mapLocationData, readCurrentLocation, requestPermission, stopLocationUpdates])
 
   return {
     location,

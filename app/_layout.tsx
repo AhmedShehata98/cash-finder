@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { QueryProvider } from '@/providers/query-provider';
+import { AuthProvider } from '@/providers/auth-provider';
 import { useLocaleStore } from '@/store/locale-store';
 
 export {
@@ -50,13 +51,17 @@ function RootLayoutNav() {
 
   return (
     <QueryProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="nearby" options={{ headerShown: false }} />
-        </Stack>
-      </ThemeProvider>
+      <AuthProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="nearby" options={{ headerShown: false }} />
+            <Stack.Screen name="auth/sign-in" options={{ presentation: 'modal', title: 'Sign in' }} />
+            <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+          </Stack>
+        </ThemeProvider>
+      </AuthProvider>
     </QueryProvider>
   );
 }

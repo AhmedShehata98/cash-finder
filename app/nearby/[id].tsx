@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef } from "react"
-import { View, Text, StyleSheet, ScrollView, Alert, BackHandler } from "react-native"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { View, Text, StyleSheet, ScrollView, Alert, BackHandler, Pressable, ActivityIndicator } from "react-native"
 import { Stack, useLocalSearchParams, useNavigation, router } from "expo-router"
 import { MaterialIcons } from "@expo/vector-icons"
 import { useI18n } from "@/i18n"
@@ -12,25 +12,28 @@ import { useNavigationTracking } from "@/hooks/useNavigationTracking"
 import { useCompassDirection } from "@/hooks/useCompassDirection"
 import { useRouteEstimates } from "@/hooks/useRouteEstimates"
 import { useNavigationStore } from "@/store/navigation-store"
-import { calculateHereRoute } from "@/services/places/here-maps/routing"
+import { calculateRoute } from "@/services/routing.service"
 import { SkeletonCard } from "@/components/SkeletonCard"
 import { ErrorState } from "@/components/ErrorState"
-import { PermissionState } from "@/components/PermissionState"
 import { HereMapView } from "@/components/navigation/HereMapView"
 import { NavigationOverlay } from "@/components/navigation/NavigationOverlay"
+import { ReportStatusSheet } from "@/features/reports/components/ReportStatusSheet"
+import { ReliabilityDetails } from "@/features/reports/components/ReliabilityDetails"
 
 export default function LocationDetailsScreen() {
-  const { formatEta, formatRemainingDistance, isRTL, t } = useI18n()
+  const { formatEta, formatRemainingDistance, t } = useI18n()
   const { id } = useLocalSearchParams<{ id: string }>()
   const navigation = useNavigation()
+  const [isReportSheetOpen, setIsReportSheetOpen] = useState(false)
+  const [isReportSubmitting, setIsReportSubmitting] = useState(false)
 
   const { data, isLoading, isError, error, refetch } = useLocationDetail(id)
 
   const {
     location: userLocation,
-    error: locationError,
     stopLocationUpdates,
-  } = useLocation({ oneTime: true, enableHighAccuracy: true })
+    refreshLocation,
+  } = useLocation({ oneTime: true, enableHighAccuracy: true, autoStart: false })
 
   const isActive = useNavigationStore((s) => s.isActive)
   const destination = useNavigationStore((s) => s.destination)
@@ -81,9 +84,10 @@ export default function LocationDetailsScreen() {
     data ? { latitude: data.latitude, longitude: data.longitude } : null
   )
 
-  const handleStartNavigation = useCallback(() => {
+  const handleStartNavigation = useCallback(async () => {
     if (!data) return
-    if (!userLatLng) {
+    const origin = userLatLng ?? await refreshLocation()
+    if (!origin) {
       Alert.alert(
         t("navigation.locationRequiredTitle"),
         t("navigation.locationRequiredMessage"),
@@ -92,7 +96,7 @@ export default function LocationDetailsScreen() {
       return
     }
     startNavigation(data, "pedestrian")
-  }, [data, startNavigation, t, userLatLng])
+  }, [data, refreshLocation, startNavigation, t, userLatLng])
 
   const handleStopNavigation = useCallback(() => {
     stopNavigation()
@@ -100,13 +104,13 @@ export default function LocationDetailsScreen() {
 
   const handleRefreshLocation = useCallback(() => {
     stopLocationUpdates()
-    refetch()
-  }, [stopLocationUpdates, refetch])
+    void refreshLocation()
+  }, [refreshLocation, stopLocationUpdates])
 
   const handleRetryRoute = useCallback(() => {
     if (!userLatLng || !destination) return
     setNavigationError(null)
-    calculateHereRoute(
+    calculateRoute(
       userLatLng,
       { latitude: destination.latitude, longitude: destination.longitude },
       transportMode ?? "pedestrian"
@@ -121,6 +125,11 @@ export default function LocationDetailsScreen() {
         )
       })
   }, [destination, setNavigationError, setRoute, t, transportMode, updateRemaining, userLatLng])
+
+  const handleOpenReportSheet = useCallback(() => {
+    if (!data) return
+    setIsReportSheetOpen(true)
+  }, [data])
 
   useEffect(() => {
     if (!isActive) return
@@ -233,26 +242,6 @@ export default function LocationDetailsScreen() {
     )
   }
 
-  if (locationError && !isActive) {
-    return (
-      <View style={styles.container}>
-        <Stack.Screen options={{ title: data.name, headerBackTitle: t("common.back") }} />
-        <HereMapView
-          destination={data}
-          userLocation={null}
-          route={null}
-          isActive={false}
-          heading={null}
-        />
-        <View style={styles.noLocationInfo}>
-          <Text style={[styles.noLocationTitle, isRTL && styles.textRtl]}>{data.name}</Text>
-          <Text style={[styles.noLocationAddress, isRTL && styles.textRtl]}>{data.address}</Text>
-        </View>
-        <PermissionState onRequestPermission={refetch} />
-      </View>
-    )
-  }
-
   const openingHoursText = data.openingHours?.flatMap((oh) => oh.text) ?? null
 
   return (
@@ -277,6 +266,8 @@ export default function LocationDetailsScreen() {
           isActive={isActive}
           heading={heading}
         />
+
+        {!isActive && <ReliabilityDetails serviceId={data.id} />}
 
         {(gpsUnavailable || permissionDenied || compassUnavailable) && isActive && (
           <View style={styles.warningBanner}>
@@ -332,7 +323,37 @@ export default function LocationDetailsScreen() {
           onRefresh={handleRefreshLocation}
           onRetryRoute={handleRetryRoute}
         />
+
+        {!isActive && (
+          <View style={styles.reportContainer}>
+            <Pressable
+              style={({ pressed }) => [styles.reportButton, pressed && styles.reportButtonPressed]}
+              onPress={handleOpenReportSheet}
+              disabled={isReportSubmitting}
+              accessibilityRole="button"
+              accessibilityLabel={t("report.button")}
+              accessibilityState={{ disabled: isReportSubmitting, busy: isReportSubmitting }}
+            >
+              {isReportSubmitting ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <MaterialIcons name="fact-check" size={20} color={colors.white} />
+              )}
+              <Text style={styles.reportButtonText}>
+                {isReportSubmitting ? t("report.submitting") : t("report.button")}
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
+
+      <ReportStatusSheet
+        isOpen={isReportSheetOpen}
+        location={data}
+        onClose={() => setIsReportSheetOpen(false)}
+        onSubmissionStateChange={setIsReportSubmitting}
+        onSubmitted={() => void refetch()}
+      />
     </View>
   )
 }
@@ -347,22 +368,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-  },
-  noLocationInfo: {
-    padding: spacing.md,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
-  },
-  noLocationTitle: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.neutral[900],
-  },
-  noLocationAddress: {
-    fontSize: typography.fontSize.sm,
-    color: colors.neutral[600],
-    marginTop: spacing.xs,
   },
   warningBanner: {
     flexDirection: "row",
@@ -380,8 +385,26 @@ const styles = StyleSheet.create({
     color: colors.warning[700],
     fontWeight: typography.fontWeight.medium,
   },
-  textRtl: {
-    textAlign: "right",
-    writingDirection: "rtl",
+  reportContainer: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
+    backgroundColor: colors.neutral[50],
+  },
+  reportButton: {
+    minHeight: 48,
+    borderRadius: 8,
+    backgroundColor: colors.primary[600],
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+  reportButtonPressed: {
+    opacity: 0.9,
+  },
+  reportButtonText: {
+    color: colors.white,
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
   },
 })

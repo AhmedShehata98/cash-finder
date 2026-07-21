@@ -82,6 +82,25 @@ eas build --profile development --platform android
 eas build --profile development --platform ios
 ```
 
+### Email authentication deep links
+
+Supabase email authentication is supported in installed development, preview, and production
+builds. It is intentionally unavailable in Expo Go and on web because the callback must use the
+stable `cashfinder://auth/callback` URL and PKCE verifier stored by the app installation.
+
+In Supabase Dashboard, open **Authentication → URL Configuration** and:
+
+1. Add the exact redirect URL `cashfinder://auth/callback`.
+2. Remove localhost as the production/default mobile destination. For this mobile-only app, use
+   `cashfinder://auth/callback` as the Site URL unless the project has a real production HTTPS site.
+3. Keep the mobile redirect exact; do not use a wildcard.
+4. Confirm the magic-link email template uses `{{ .ConfirmationURL }}` or otherwise honors
+   `{{ .RedirectTo }}` instead of hardcoding the Site URL or localhost.
+
+After changing the native scheme configuration, rebuild the development client. Test the email link
+on both Android and iOS with the app terminated, backgrounded, and already open. Also verify expired
+links, offline retry, returning to Rewards, and guest-progress merging.
+
 ## Production Build
 
 ### Create production builds:

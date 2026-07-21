@@ -1,5 +1,5 @@
-import { getPlacesProvider } from "@/services/provider-registry"
-import type { FinancialLocation } from "@/types"
+import { searchNearbyFinancialServices } from "@/services/supabase/financial-services.repository"
+import { FinancialServiceType, type FinancialLocation } from "@/types"
 import { useInfiniteQuery } from "@tanstack/react-query"
 
 type UseNearbyLocationsParams = {
@@ -26,15 +26,14 @@ export function useNearbyLocations(params: UseNearbyLocationsParams) {
         throw new Error("Location not available")
       }
 
-      const provider = getPlacesProvider()
-      return provider.searchNearby({
+      return searchNearbyFinancialServices({
         latitude,
         longitude,
         radius,
         limit,
         query,
         offset: pageParam as number | undefined,
-        categories,
+        serviceTypes: mapCategoriesToServiceTypes(categories),
       })
     },
     initialPageParam: undefined as number | undefined,
@@ -43,4 +42,25 @@ export function useNearbyLocations(params: UseNearbyLocationsParams) {
     staleTime: 1000 * 60 * 2,
     placeholderData: (previousData) => previousData,
   })
+}
+
+function mapCategoriesToServiceTypes(categories?: string[]): FinancialServiceType[] {
+  if (!categories || categories.length === 0 || categories.includes("all")) return []
+
+  const types = new Set<FinancialServiceType>()
+  if (categories.includes("atm")) types.add(FinancialServiceType.ATM)
+  if (categories.includes("banks")) {
+    types.add(FinancialServiceType.BankBranch)
+    types.add(FinancialServiceType.CashDepositMachine)
+  }
+  if (categories.includes("money-transfer")) {
+    types.add(FinancialServiceType.Fawry)
+    types.add(FinancialServiceType.Aman)
+    types.add(FinancialServiceType.Masary)
+    types.add(FinancialServiceType.Bee)
+    types.add(FinancialServiceType.Dafaa)
+    types.add(FinancialServiceType.OtherProvider)
+  }
+
+  return [...types]
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import * as Location from "expo-location"
 import { useNavigationStore } from "@/store/navigation-store"
-import { calculateHereRoute, type RouteLeg } from "@/services/places/here-maps/routing"
+import { calculateRoute, type RouteLeg } from "@/services/routing.service"
 
 type LatLng = { latitude: number; longitude: number }
 
@@ -115,7 +115,7 @@ export function useNavigationTracking(): NavigationTrackingResult {
       try {
         setRecalculating(true)
         setNavigationError(null)
-        const result = await calculateHereRoute(origin, dest, mode)
+        const result = await calculateRoute(origin, dest, mode)
         setRoute(result.legs)
         updateRemaining(result.totalDistance, result.totalDuration)
       } catch (err) {
